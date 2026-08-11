@@ -20,6 +20,9 @@ class DualSidplayfp < Formula
 
   depends_on "pkgconf" => :build
   depends_on "libgcrypt"
+  depends_on "libusb" # usbsid-builder lo richiede a compile time (libusb.h),
+                       # non solo a runtime — non e' opzionale nonostante la
+                       # formula ufficiale non lo dichiari
 
   def install
     system "./configure", "--disable-silent-rules", *std_configure_args
