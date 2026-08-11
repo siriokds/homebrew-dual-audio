@@ -139,26 +139,11 @@ static int DUAL_AUDIO_PLUGIN_ABI uade_plugin_can_handle(void* self, const char* 
     return 0;
 }
 
-static int DUAL_AUDIO_PLUGIN_ABI uade_plugin_load(void* self, const char* path,
-                                                   dual_song_meta_t* out_meta) {
-    uade_plugin_state_t* s = (uade_plugin_state_t*)self;
-
-    if (s->playing) {
-        uade_stop(s->state);
-        s->playing = 0;
-    }
-
-    strncpy(s->current_file, path, sizeof(s->current_file) - 1);
-    s->current_file[sizeof(s->current_file) - 1] = '\0';
-
-    int r = uade_play(path, -1, s->state);
-    if (r != 1) {
-        snprintf(s->last_error, sizeof(s->last_error),
-                 "uade_play() rejected: %s", path);
-        return 0;
-    }
-    s->playing = 1;
-
+// Condivisa fra load() e set_subsong(): entrambi devono restituire metadati
+// aggiornati (set_subsong() cambia titolo/formato quando i subsong sono
+// moduli diversi, non solo un offset nello stesso file).
+static void uade_plugin_fill_meta(uade_plugin_state_t* s, const char* path,
+                                   dual_song_meta_t* out_meta) {
     const struct uade_song_info* si = uade_get_song_info(s->state);
 
     static char title_buf[256], line1_buf[256], line2_buf[256], line3_buf[128];
@@ -187,7 +172,29 @@ static int DUAL_AUDIO_PLUGIN_ABI uade_plugin_load(void* self, const char* path,
     out_meta->duration_s       = si ? si->duration : 0.0;
     out_meta->num_subsongs     = si ? (si->subsongs.max - si->subsongs.min + 1) : 1;
     out_meta->current_subsong  = si ? (si->subsongs.cur - si->subsongs.min) : 0;
+}
 
+static int DUAL_AUDIO_PLUGIN_ABI uade_plugin_load(void* self, const char* path,
+                                                   dual_song_meta_t* out_meta) {
+    uade_plugin_state_t* s = (uade_plugin_state_t*)self;
+
+    if (s->playing) {
+        uade_stop(s->state);
+        s->playing = 0;
+    }
+
+    strncpy(s->current_file, path, sizeof(s->current_file) - 1);
+    s->current_file[sizeof(s->current_file) - 1] = '\0';
+
+    int r = uade_play(path, -1, s->state);
+    if (r != 1) {
+        snprintf(s->last_error, sizeof(s->last_error),
+                 "uade_play() rejected: %s", path);
+        return 0;
+    }
+    s->playing = 1;
+
+    uade_plugin_fill_meta(s, path, out_meta);
     return 1;
 }
 
@@ -238,11 +245,13 @@ static int DUAL_AUDIO_PLUGIN_ABI uade_plugin_get_volume(void* self) {
     return 100;
 }
 
-static void DUAL_AUDIO_PLUGIN_ABI uade_plugin_set_subsong(void* self, int idx_0based) {
+static void DUAL_AUDIO_PLUGIN_ABI uade_plugin_set_subsong(void* self, int idx_0based,
+                                                            dual_song_meta_t* out_meta) {
     uade_plugin_state_t* s = (uade_plugin_state_t*)self;
     if (s->playing) uade_stop(s->state);
     int r = uade_play(s->current_file, idx_0based, s->state);
     s->playing = (r == 1);
+    if (s->playing) uade_plugin_fill_meta(s, s->current_file, out_meta);
 }
 
 static double DUAL_AUDIO_PLUGIN_ABI uade_plugin_get_position_seconds(void* self) {

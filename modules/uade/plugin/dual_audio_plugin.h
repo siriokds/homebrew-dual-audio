@@ -51,7 +51,14 @@ extern "C" {
 // costruzione: un host che legge solo fino a vminor 0 non tocca quel campo,
 // un plugin vecchio compilato a vminor 0 lo lascia a zero-init, che l'host
 // interpreta correttamente come "usa il default" (vedi il campo stesso).
-#define DUAL_AUDIO_PLUGIN_API_VMINOR 1
+//
+// v1.2: set_subsong() guadagna il parametro out_meta (stessa sessione).
+// A differenza di v1.1 questa NON e' una modifica additiva sicura — cambia
+// la firma di una funzione della vtable, non aggiunge un campo in coda a
+// una struct. Vale solo perche' tutti gli adattatori vengono ricompilati
+// insieme a questo header ad ogni bump; un vero terzo plugin precompilato
+// smetterebbe di funzionare.
+#define DUAL_AUDIO_PLUGIN_API_VMINOR 2
 
 // ── Architettura ─────────────────────────────────────────────────────────────
 // Non serve un campo esplicito: dlopen() su macOS rifiuta già da solo un
@@ -205,7 +212,18 @@ typedef struct {
     void  (DUAL_AUDIO_PLUGIN_ABI *set_volume)(void* self, int pct);
     int   (DUAL_AUDIO_PLUGIN_ABI *get_volume)(void* self);
 
-    void  (DUAL_AUDIO_PLUGIN_ABI *set_subsong)(void* self, int idx_0based);
+    // out_meta va riempito con i metadati AGGIORNATI del nuovo subsong
+    // (stesso ruolo di load()) — senza, l'host non avrebbe modo di sapere
+    // che titolo/autore sono cambiati passando da un subsong all'altro
+    // (bug reale: mancava del tutto nella prima versione di quest'ABI,
+    // scoperto scrivendo l'adattatore OpenMPT). Firma diversa da quella
+    // originale: a differenza dei campi aggiunti in coda alla struct info,
+    // un cambio di firma di funzione NON e' compatibile con un plugin gia'
+    // compilato — qui va bene solo perche' tutti gli adattatori esistenti
+    // vengono ricompilati insieme a questo header, non e' un caso
+    // "additivo sicuro" come extended_params.
+    void  (DUAL_AUDIO_PLUGIN_ABI *set_subsong)(void* self, int idx_0based,
+                                                dual_song_meta_t* out_meta);
     double (DUAL_AUDIO_PLUGIN_ABI *get_position_seconds)(void* self);
 
     int   (DUAL_AUDIO_PLUGIN_ABI *can_seek)(void* self);

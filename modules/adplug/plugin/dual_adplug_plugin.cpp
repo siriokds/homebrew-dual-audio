@@ -120,6 +120,26 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_can_handle(void* self, const char* path)
     return 0;
 }
 
+// Condivisa fra load() e set_subsong(): titolo/autore/tipo sono proprieta'
+// del CPlayer (non cambiano cambiando subsong), ma la durata sì — va
+// ricalcolata per il subsong corrente ad ogni chiamata.
+static void adplug_fill_meta(adplug_plugin_state_t* s, dual_song_meta_t* out_meta) {
+    const unsigned long length_ms =
+        SafeSonglength(s->player.get(), static_cast<int>(s->subsong));
+
+    static char line1_buf[160], line2_buf[288];
+    snprintf(line1_buf, sizeof(line1_buf), "Type: %s", s->type);
+    snprintf(line2_buf, sizeof(line2_buf), "Author: %s", s->author);
+
+    out_meta->title = s->title[0] ? s->title : nullptr;
+    out_meta->line1 = s->type[0]   ? line1_buf : "";
+    out_meta->line2 = s->author[0] ? line2_buf : "";
+    out_meta->line3 = "";
+    out_meta->duration_s = length_ms > 0 ? length_ms / 1000.0 : 0.0;
+    out_meta->num_subsongs = static_cast<int>(s->num_subsongs);
+    out_meta->current_subsong = static_cast<int>(s->subsong);
+}
+
 static int DUAL_AUDIO_PLUGIN_ABI adplug_load(void* self, const char* path,
                                               dual_song_meta_t* out_meta) {
     auto* s = static_cast<adplug_plugin_state_t*>(self);
@@ -147,19 +167,8 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_load(void* self, const char* path,
     strncpy(s->title, raw->gettitle().c_str(), sizeof(s->title) - 1);
     strncpy(s->author, raw->getauthor().c_str(), sizeof(s->author) - 1);
     strncpy(s->type, raw->gettype().c_str(), sizeof(s->type) - 1);
-    const unsigned long length_ms = SafeSonglength(raw, static_cast<int>(s->subsong));
 
-    static char line1_buf[160], line2_buf[288];
-    snprintf(line1_buf, sizeof(line1_buf), "Type: %s", s->type);
-    snprintf(line2_buf, sizeof(line2_buf), "Author: %s", s->author);
-
-    out_meta->title = s->title[0] ? s->title : nullptr;
-    out_meta->line1 = s->type[0]   ? line1_buf : "";
-    out_meta->line2 = s->author[0] ? line2_buf : "";
-    out_meta->line3 = "";
-    out_meta->duration_s = length_ms > 0 ? length_ms / 1000.0 : 0.0;
-    out_meta->num_subsongs = static_cast<int>(s->num_subsongs);
-    out_meta->current_subsong = static_cast<int>(s->subsong);
+    adplug_fill_meta(s, out_meta);
 
     return 1;
 }
@@ -218,7 +227,8 @@ static void DUAL_AUDIO_PLUGIN_ABI adplug_set_volume(void* self, int pct) {
 }
 static int DUAL_AUDIO_PLUGIN_ABI adplug_get_volume(void* self) { (void)self; return 100; }
 
-static void DUAL_AUDIO_PLUGIN_ABI adplug_set_subsong(void* self, int idx_0based) {
+static void DUAL_AUDIO_PLUGIN_ABI adplug_set_subsong(void* self, int idx_0based,
+                                                       dual_song_meta_t* out_meta) {
     auto* s = static_cast<adplug_plugin_state_t*>(self);
     if (!s->player) return;
     const unsigned int n = static_cast<unsigned int>(
@@ -227,6 +237,7 @@ static void DUAL_AUDIO_PLUGIN_ABI adplug_set_subsong(void* self, int idx_0based)
     s->player->rewind(static_cast<int>(n));
     s->subsong = n;
     s->playing = 1;
+    adplug_fill_meta(s, out_meta);
 }
 
 static double DUAL_AUDIO_PLUGIN_ABI adplug_get_position_seconds(void* self) {

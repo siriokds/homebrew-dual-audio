@@ -38,6 +38,7 @@ struct sidplayfp_plugin_state_t {
     int  rate {0};
     int  playing {0};
     int  current_subsong {1}; // 1-based, come l'API sidplayfp
+    int  num_subsongs {1};
 
     char title[256] {};
     char author[256] {};
@@ -147,6 +148,7 @@ static int DUAL_AUDIO_PLUGIN_ABI sid_load(void* self, const char* path,
 
     s->tune = std::move(tune);
     s->current_subsong = start_subsong;
+    s->num_subsongs = num_subsongs;
     s->playing = 1;
 
     static char line1_buf[288], line2_buf[160];
@@ -200,7 +202,8 @@ static int DUAL_AUDIO_PLUGIN_ABI sid_get_volume(void* self) {
     return 100;
 }
 
-static void DUAL_AUDIO_PLUGIN_ABI sid_set_subsong(void* self, int idx_0based) {
+static void DUAL_AUDIO_PLUGIN_ABI sid_set_subsong(void* self, int idx_0based,
+                                                   dual_song_meta_t* out_meta) {
     auto* s = static_cast<sidplayfp_plugin_state_t*>(self);
     if(!s->tune) return;
     const int n = idx_0based + 1; // 1-based per l'API sidplayfp
@@ -208,6 +211,21 @@ static void DUAL_AUDIO_PLUGIN_ABI sid_set_subsong(void* self, int idx_0based) {
     if(s->engine->load(s->tune.get())) {
         s->current_subsong = n;
         s->playing = 1;
+
+        // Titolo/autore/data non cambiano fra subsong dello stesso tune SID
+        // (a differenza di UADE, dove un domani potrebbero); solo l'indice
+        // corrente serve un aggiornamento reale qui.
+        static char line1_buf[288], line2_buf[160];
+        snprintf(line1_buf, sizeof(line1_buf), "Author: %s", s->author);
+        snprintf(line2_buf, sizeof(line2_buf), "Released: %s", s->released);
+
+        out_meta->title           = s->title[0] ? s->title : nullptr;
+        out_meta->line1           = s->author[0]   ? line1_buf : "";
+        out_meta->line2           = s->released[0] ? line2_buf : "";
+        out_meta->line3           = "";
+        out_meta->duration_s      = 0.0;
+        out_meta->num_subsongs    = s->num_subsongs;
+        out_meta->current_subsong = idx_0based;
     }
 }
 

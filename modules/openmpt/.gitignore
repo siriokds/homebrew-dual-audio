@@ -1,0 +1,3 @@
+plugin/*.dylib
+plugin/*.so
+plugin/*.dll
