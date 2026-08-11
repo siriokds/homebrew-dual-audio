@@ -46,6 +46,14 @@ repository each.
   built purely for architectural consistency against the official
   `libopenmpt` Homebrew formula. Formula: `Formula/dual-openmpt.rb`.
 
+- **`modules/stsound/`** — Atari ST YM2149 chiptune (`.ym`). MIT, again no
+  isolation required. Unlike every other module the source is **vendored
+  directly** (not a submodule): upstream `arnaud-carre/StSound` has been
+  unmaintained for years, and StSound was never distributed as a library
+  anyway — it is meant to be compiled into whatever uses it. The formula
+  compiles source + adapter into one self-contained dylib, no dependencies
+  beyond libc++. Formula: `Formula/dual-stsound.rb`.
+
 ## Installing
 
 ```sh
@@ -55,6 +63,7 @@ brew install siriokds/dual-audio/dual-uade
 brew install siriokds/dual-audio/dual-sidplayfp
 brew install siriokds/dual-audio/dual-adplug
 brew install siriokds/dual-audio/dual-openmpt
+brew install siriokds/dual-audio/dual-stsound
 ```
 
 ## Step by step
