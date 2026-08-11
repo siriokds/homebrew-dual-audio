@@ -50,10 +50,25 @@ class DualUade < Formula
                           "--libzakalwe-prefix=#{prefix}",
                           "--without-write-audio"
     system "make", "install"
+
+    # Adattatore dual_audio_plugin.h → libuade.dylib. Il sorgente non viene
+    # da mvtiaine/uade (l'url di questa formula), vive in questo stesso tap
+    # sotto modules/uade/plugin/ — lo si prende da lì, non da un resource
+    # scaricato: e' proprio per questo che l'intero repo e' un solo tap.
+    plugin_src = Pathname.new(__dir__).parent/"modules/uade/plugin"
+    cp plugin_src/"dual_uade_plugin.c", buildpath
+    cp plugin_src/"dual_audio_plugin.h", buildpath
+    system ENV.cc, "-shared", "-fPIC",
+           "-I#{include}", "-L#{lib}", "-luade",
+           "-Wl,-rpath,#{lib}",
+           "-o", "libdual_uade_plugin.dylib",
+           buildpath/"dual_uade_plugin.c"
+    lib.install "libdual_uade_plugin.dylib"
   end
 
   test do
     assert_predicate lib/"libuade.dylib", :exist?
+    assert_predicate lib/"libdual_uade_plugin.dylib", :exist?
     assert_match version.to_s, shell_output("#{bin}/uade123 --version")
   end
 end
