@@ -6,27 +6,34 @@ for [Dual](https://github.com/siriokds/dual), with extra Amiga format
 support beyond stock UADE.
 
 ```sh
-brew tap siriokds/dual-uade https://github.com/siriokds/homebrew-dual-uade
+brew tap siriokds/dual-uade
 brew trust siriokds/dual-uade --tap
 brew install siriokds/dual-uade/dual-uade
 ```
 
 ## Step by step
 
-**1. `brew tap siriokds/dual-uade https://github.com/siriokds/homebrew-dual-uade`**
+**1. `brew tap siriokds/dual-uade`**
 Clones this repository into Homebrew's own tap directory
 (`$(brew --repository)/Library/Taps/siriokds/homebrew-dual-uade`) and
 registers it so `brew` knows a formula named `dual-uade` exists under the
 `siriokds/dual-uade` namespace. Nothing is built or installed yet — this
 step only makes the *recipe* (`Formula/dual-uade.rb`) visible to Homebrew.
+No URL needed: `brew tap user/name` defaults to
+`https://github.com/user/homebrew-name`, and this repository's name already
+follows that convention.
 
 **2. `brew trust siriokds/dual-uade --tap`**
 Homebrew refuses to run formula code from a tap it doesn't already know
 until you explicitly confirm it. This is not specific to this tap — every
 third-party tap (anyone's, not just this one) requires the same step
 before `brew install` will do anything with it. The confirmation is stored
-locally (`~/.homebrew/trust.json` or under `$XDG_CONFIG_HOME`), so it's a
-one-time thing per machine, not per install.
+locally (`~/.homebrew/trust.json` or under `$XDG_CONFIG_HOME`), keyed by
+tap name — it's a one-time thing **per machine**, not per install: verified
+that uninstalling and untapping does *not* clear it, so re-tapping later on
+the same machine does not require running `brew trust` again. A different
+machine (or a fresh Homebrew install) starts with nothing trusted and does
+need the step once.
 
 **3. `brew install siriokds/dual-uade/dual-uade`**
 Runs the formula: downloads `mvtiaine/uade` (branch `dragnet`) plus its two
