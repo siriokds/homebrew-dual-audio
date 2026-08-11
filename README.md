@@ -41,6 +41,11 @@ repository each.
   once Dual gains a generic parser for the `config_dialog` DSL. Formula:
   `Formula/dual-adplug.rb`.
 
+- **`modules/openmpt/`** — PC tracker formats (MOD, S3M, XM, IT, and more).
+  Same shape as `modules/adplug/`: BSD-3-Clause, no isolation required,
+  built purely for architectural consistency against the official
+  `libopenmpt` Homebrew formula. Formula: `Formula/dual-openmpt.rb`.
+
 ## Installing
 
 ```sh
@@ -49,6 +54,7 @@ brew trust siriokds/dual-audio --tap
 brew install siriokds/dual-audio/dual-uade
 brew install siriokds/dual-audio/dual-sidplayfp
 brew install siriokds/dual-audio/dual-adplug
+brew install siriokds/dual-audio/dual-openmpt
 ```
 
 ## Step by step
