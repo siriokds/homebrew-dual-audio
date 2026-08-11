@@ -1,0 +1,4 @@
+[submodule "modules/uade/src"]
+	path = modules/uade/src
+	url = https://gitlab.com/mvtiaine/uade.git
+	branch = dragnet

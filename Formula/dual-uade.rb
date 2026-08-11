@@ -1,6 +1,6 @@
 class DualUade < Formula
   desc "UADE (dragnet fork) with extra Amiga format support, built for Dual"
-  homepage "https://github.com/siriokds/dual-uade"
+  homepage "https://github.com/siriokds/homebrew-dual-audio/tree/main/modules/uade"
   url "https://gitlab.com/mvtiaine/uade.git", branch: "dragnet"
   version "3.05-dragnet"
   license "GPL-2.0-only"

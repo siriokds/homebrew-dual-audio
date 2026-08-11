@@ -1,87 +1,113 @@
-# homebrew-dual-uade
+# homebrew-dual-audio
 
-Homebrew tap for [dual-uade](https://github.com/siriokds/dual-uade) —
-UADE (`mvtiaine/uade`, branch `dragnet`) built as a drop-in `libuade.dylib`
-for [Dual](https://github.com/siriokds/dual), with extra Amiga format
-support beyond stock UADE.
+Homebrew tap for the GPL-licensed audio modules used by
+[Dual](https://github.com/siriokds/dual), kept in their own repository and
+their own build so they stay separate from Dual's own binary — Dual
+`dlopen()`s them at runtime, it never links them in. See Dual's own
+`docs/CLAUDE/AUDIO_BACKEND_LICENSES.md` for the full reasoning.
+
+One tap, one repository, multiple modules — new modules get their own
+subfolder under `modules/` and their own `Formula/*.rb`, not a new
+repository each.
+
+## Modules
+
+- **`modules/uade/`** — UADE (`mvtiaine/uade`, branch `dragnet`) built as a
+  drop-in `libuade.dylib`, same public C API as stock UADE (verified
+  identical `uade.h`), with additional Amiga format support: Face The
+  Music, OctaMED Soundstudio/MMD3, Protracker4/Protracker IFF, MED4 (via
+  conversion to MMD0), DigiBooster 3/Pro 2, ProTrekkr 1&2, NoiseTrekker 2.
+  Formula: `Formula/dual-uade.rb`.
+
+## Installing
 
 ```sh
-brew tap siriokds/dual-uade
-brew trust siriokds/dual-uade --tap
-brew install siriokds/dual-uade/dual-uade
+brew tap siriokds/dual-audio
+brew trust siriokds/dual-audio --tap
+brew install siriokds/dual-audio/dual-uade
 ```
 
 ## Step by step
 
-**1. `brew tap siriokds/dual-uade`**
-Clones this repository into Homebrew's own tap directory
-(`$(brew --repository)/Library/Taps/siriokds/homebrew-dual-uade`) and
-registers it so `brew` knows a formula named `dual-uade` exists under the
-`siriokds/dual-uade` namespace. Nothing is built or installed yet — this
-step only makes the *recipe* (`Formula/dual-uade.rb`) visible to Homebrew.
-No URL needed: `brew tap user/name` defaults to
-`https://github.com/user/homebrew-name`, and this repository's name already
-follows that convention.
+**1. `brew tap siriokds/dual-audio`**
+Clones this repository into Homebrew's own tap directory and registers it
+so `brew` knows the formulae under `Formula/` exist under the
+`siriokds/dual-audio` namespace. Nothing is built yet. No URL needed:
+`brew tap user/name` defaults to `https://github.com/user/homebrew-name`,
+and this repository's name already follows that convention.
 
-**2. `brew trust siriokds/dual-uade --tap`**
+**2. `brew trust siriokds/dual-audio --tap`**
 Homebrew refuses to run formula code from a tap it doesn't already know
-until you explicitly confirm it. This is not specific to this tap — every
-third-party tap (anyone's, not just this one) requires the same step
-before `brew install` will do anything with it. The confirmation is stored
-locally (`~/.homebrew/trust.json` or under `$XDG_CONFIG_HOME`), keyed by
-tap name — it's a one-time thing **per machine**, not per install: verified
-that uninstalling and untapping does *not* clear it, so re-tapping later on
-the same machine does not require running `brew trust` again. A different
-machine (or a fresh Homebrew install) starts with nothing trusted and does
-need the step once.
+until you explicitly confirm it — required for any third-party tap, not
+specific to this one. The confirmation is stored locally
+(`~/.homebrew/trust.json` or under `$XDG_CONFIG_HOME`), keyed by tap name:
+it's a one-time thing **per machine** (verified that uninstalling and
+untapping does not clear it), not per install.
 
-**3. `brew install siriokds/dual-uade/dual-uade`**
-Runs the formula: downloads `mvtiaine/uade` (branch `dragnet`) plus its two
-small build-time dependencies (`libzakalwe`, `bencode-tools`), then
-`./configure && make install` for all three, in
-`/opt/homebrew/Cellar/dual-uade/<version>/`. Takes a few seconds — these
-are small C codebases, nothing heavy is compiled.
+**3. `brew install siriokds/dual-audio/dual-uade`**
+Runs the `dual-uade` formula specifically (there may be others later, one
+per module — each is installed by name). Downloads `mvtiaine/uade` (branch
+`dragnet`) plus its two small build-time dependencies (`libzakalwe`,
+`bencode-tools`), then `./configure && make install` for all three.
 
 ## Where things end up, and why `keg_only`
 
-The formula is marked `keg_only`, which means Homebrew does **not** create
-its usual symlinks into `/opt/homebrew/lib`, `/opt/homebrew/include`, etc.
-This is deliberate: the official `uade` formula (stock UADE) already
-provides a `libuade.dylib` under those exact same symlinked names, and
-`dual-uade` is meant to coexist with it, not replace it — both can be
-installed on the same machine at once. To find what got built:
+Each formula here is `keg_only`: Homebrew does **not** create its usual
+symlinks into `/opt/homebrew/lib`, `/opt/homebrew/include`, etc. This is
+deliberate for `dual-uade` specifically — the official `uade` formula
+(stock UADE) already provides a `libuade.dylib` under those exact same
+symlinked names, and `dual-uade` is meant to coexist with it, not replace
+it. To find what got built:
 
 ```sh
-/opt/homebrew/opt/dual-uade/lib/libuade.dylib     # the library itself
-/opt/homebrew/opt/dual-uade/include/uade/uade.h   # the public C API (identical to stock UADE's)
-/opt/homebrew/opt/dual-uade/bin/uade123           # a standalone CLI player, useful for a quick test
+/opt/homebrew/opt/dual-uade/lib/libuade.dylib
+/opt/homebrew/opt/dual-uade/include/uade/uade.h
+/opt/homebrew/opt/dual-uade/bin/uade123   # standalone CLI player, useful for a quick test
 ```
 
-A caller (Dual, or anything else) that wants to use this build specifically
-instead of the stock one must point at that `/opt/dual-uade/...` path
-explicitly — `keg_only` means it will never be picked up "by accident"
-just by looking in the usual shared locations.
+## Verifying `dual-uade` actually built the fork (not stock UADE)
 
-## Verifying the install actually built the fork (not stock UADE)
-
-Stock UADE doesn't support Face The Music; this fork does. A quick sanity
-check after installing:
+Stock UADE doesn't support Face The Music; this fork does:
 
 ```sh
 grep -c FaceTheMusic /opt/homebrew/opt/dual-uade/share/uade/eagleplayer.conf
 # → 1 if this is really the fork; 0 would mean something went wrong
 ```
 
+## Building a module manually, without Homebrew
+
+Each module also has its own build script, for the same result without
+going through `brew`:
+
+```sh
+git submodule update --init --recursive
+modules/uade/build-macos.sh
+```
+
+Produces `modules/uade/build/macos/lib/libuade.dylib` and the matching
+header. Override the install location with `PREFIX=/some/path`.
+
 ## Uninstalling / re-tapping
 
 ```sh
 brew uninstall dual-uade
-brew untap siriokds/dual-uade
+brew untap siriokds/dual-audio
 ```
 
-`brew untap` will refuse to run while the formula is still installed —
-uninstall first, as above.
+`brew untap` refuses to run while a formula from the tap is still
+installed — uninstall it first.
 
-License: GNU General Public License v2.0, inherited from UADE — see the
-[dual-uade](https://github.com/siriokds/dual-uade) repository for the
-source and the full license text.
+## License
+
+**GNU General Public License v2.0** — see [LICENSE](LICENSE). The UADE
+core (`modules/uade/src/`) is GPL-2.0-only; this repository, distributing
+it, is licensed the same way as a whole. The `Formula/*.rb` recipes
+themselves would not individually require GPL (they contain no UADE code,
+only build instructions — the same reasoning Homebrew's own `homebrew-core`
+uses to stay BSD-2-Clause despite hosting formulae for GPL software), but
+are covered by the same repository-wide license for simplicity.
+
+See `modules/uade/src/COPYING`, `COPYING.GPL` and `COPYING.LGPL` for
+UADE's own upstream licensing notes (parts of `amigasrc/score/` are LGPL;
+`players/` contains per-file licenses and copyright holders — read before
+reusing an individual player outside this build).
