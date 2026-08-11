@@ -47,7 +47,11 @@ extern "C" {
 // campi/funzioni oltre la vminor che non conosce (retrocompatibilità additiva,
 // stesso principio di DDB_API_LEVEL in deadbeef.h).
 #define DUAL_AUDIO_PLUGIN_API_VMAJOR 1
-#define DUAL_AUDIO_PLUGIN_API_VMINOR 0
+// v1.1: aggiunto info.fade_in_seconds (sessione 2026-08-11). Additivo per
+// costruzione: un host che legge solo fino a vminor 0 non tocca quel campo,
+// un plugin vecchio compilato a vminor 0 lo lascia a zero-init, che l'host
+// interpreta correttamente come "usa il default" (vedi il campo stesso).
+#define DUAL_AUDIO_PLUGIN_API_VMINOR 1
 
 // ── Architettura ─────────────────────────────────────────────────────────────
 // Non serve un campo esplicito: dlopen() su macOS rifiuta già da solo un
@@ -99,6 +103,16 @@ typedef struct {
     // Dual la interpreta e disegna i widget in wx; il plugin non disegna nulla.
     // NULL se il plugin non ha parametri configurabili.
     const char* config_dialog;
+
+    // Quanto deve durare la salita anti-click quando Dual avvia l'uscita
+    // audio per questo plugin, in secondi. <= 0 (incluso lo zero-init di un
+    // plugin compilato a vminor 0, prima che questo campo esistesse) →
+    // Dual usa il proprio default (vedi kAudioFadeInSeconds). Esiste perche'
+    // alcuni motori hanno un transiente d'attacco che il default non copre
+    // (sidplayfp: routine INIT che scrive i registri filtro/volume qualche
+    // frame dopo l'avvio, non al frame zero — 40 ms, ~2 raster PAL, coprono
+    // meglio senza diventare un fade-in udibile).
+    float fade_in_seconds;
 
     // ── Estensione futura (stile pNext di Vulkan / catene di struct DirectX) ──
     // Riservato: DEVE essere NULL finché non esiste una versione 2 di questa

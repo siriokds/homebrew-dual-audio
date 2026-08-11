@@ -234,6 +234,7 @@ static const dual_audio_plugin_t kPlugin = {
         "https://github.com/siriokds/homebrew-dual-audio",
         kExtensions,
         kConfigDialog,
+        0.040f, // fade_in_seconds — ~2 raster PAL, copre l'attacco del filtro SID
         nullptr, // extended_params
     },
     /* ops */ {
