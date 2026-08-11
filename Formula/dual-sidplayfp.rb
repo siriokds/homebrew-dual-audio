@@ -24,9 +24,14 @@ class DualSidplayfp < Formula
   depends_on "libusb"
 
   def install
-    # coreutils davanti nel PATH: l'od di sistema su macOS e' BSD e non
-    # supporta -w, che configure vuole per generare psiddrv.bin.
-    ENV.prepend_path "PATH", Formula["coreutils"].opt_libexec/"gnubin"
+    # NON aggiungere gnubin di coreutils al PATH: sostituirebbe anche
+    # /bin/pwd con quello GNU, che va in conflitto col sandbox di build di
+    # Homebrew ("pwd: .: Operation not permitted", poi autoreconf fallisce
+    # a fine corsa con "cannot chdir to : ..." perche' la pwd iniziale e'
+    # vuota). Non serve comunque: configure.ac cerca sia "od" che "god"
+    # (AC_PATH_PROGS_FEATURE_CHECK), e "god" — l'alias prefissato di
+    # coreutils — e' gia' nel PATH grazie al solo depends_on sopra, senza
+    # bisogno di toccare l'ordine di risoluzione dei binari di sistema.
 
     # Il sorgente ha tre submodule annidati (resid, driver exSID/USBSID —
     # vedi .gitmodules a monte): Homebrew non li scarica da solo con un
