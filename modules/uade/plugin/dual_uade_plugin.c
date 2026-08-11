@@ -32,20 +32,33 @@ typedef struct {
 static char g_create_error[256] = "";
 
 // ── Estensioni gestite ───────────────────────────────────────────────────────
-// Stesso elenco delle regole *_uade in core/configuration.cpp lato Dual, più
-// gli extra della fork dragnet (Face The Music, MMD3, MED4, DigiBooster,
-// ProTrekkr, NoiseTrekker) dichiarati anche nel copyright sotto.
+// DEVE contenere l'intero elenco kUadeExts di audio_backend.cpp in Dual —
+// FindPluginForExtension() richiede che l'estensione sia sia nel dispatch di
+// Dual SIA in questa lista, quindi una voce mancante qui rende il plugin
+// invisibile per quel formato anche se installato e funzionante (bug reale,
+// riscontrato: *.dm2 non veniva trovato perche' l'elenco iniziale copriva
+// solo un sottoinsieme). Più gli extra della fork dragnet (Face The Music,
+// MMD3, MED4, DigiBooster, ProTrekkr, NoiseTrekker) dichiarati anche nel
+// copyright sotto — questi non sono ancora in kUadeExts lato Dual, quindi
+// oggi restano dichiarati qui ma irraggiungibili finche' non si aggiornano
+// anche le regole di dispatch la' (prossimo passo, non in questa build).
 static const char* const kExtensions[] = {
-    "mod", "s3m", "xm", "it",                 // gestiti anche da OpenMPT: la
-                                               // scelta fra i due backend e'
-                                               // decisione del loader in Dual,
-                                               // non di questo plugin.
-    "fc", "fc3", "fc13", "fc4", "fc14",       // Face The Music (solo fork)
-    "med", "mmd0", "mmd1", "mmd2", "mmd3",    // OctaMED / MED4 (via conversione)
-    "dbm", "dz",                              // DigiBooster
-    "ptk", "ptt",                             // ProTrekkr
-    "sid1", "sid2", "smn",                    // SIDMon
-    "ahx", "thx",                             // AHX/THX
+    // Amiga custom formats
+    "fc", "fc3", "fc13", "fc4", "fc14", "dm", "dm2", "bp", "mon", "cust",
+    "aon", "dz", "hipc", "hip", "jam", "mkii", "ma", "mc", "sa", "sonic",
+    // SIDMon 1.0 / 2.0 (Amiga)
+    "sid1", "smn", "sid2",
+    // AHX / THX
+    "ahx", "thx",
+    // Other Amiga formats
+    "ml", "fred", "dw",
+    // C64 / console chiptune
+    "nsf", "nsfe", "spc", "gym", "vgm", "ay", "gbs", "hes", "kss",
+    // PC tracker — gestiti anche da OpenMPT: la scelta fra i due backend e'
+    // decisione del loader in Dual, non di questo plugin.
+    "mod", "s3m", "xm", "it",
+    // Extra della fork dragnet, non ancora nel dispatch kUadeExts lato Dual
+    "med", "mmd0", "mmd1", "mmd2", "mmd3", "dbm", "ptk", "ptt",
     NULL
 };
 
