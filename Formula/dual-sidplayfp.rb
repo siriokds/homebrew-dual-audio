@@ -28,6 +28,12 @@ class DualSidplayfp < Formula
     # supporta -w, che configure vuole per generare psiddrv.bin.
     ENV.prepend_path "PATH", Formula["coreutils"].opt_libexec/"gnubin"
 
+    # Il sorgente ha tre submodule annidati (resid, driver exSID/USBSID —
+    # vedi .gitmodules a monte): Homebrew non li scarica da solo con un
+    # plain "url ... using: :git", vanno inizializzati esplicitamente prima
+    # di autoreconf (che altrimenti non trova le macro m4 del driver exSID).
+    system "git", "submodule", "update", "--init", "--recursive"
+
     system "autoreconf", "--force", "--install", "--verbose"
     system "./configure", "--disable-silent-rules", *std_configure_args
     system "make", "install"
