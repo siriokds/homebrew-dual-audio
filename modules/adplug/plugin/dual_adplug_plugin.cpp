@@ -65,6 +65,7 @@ struct adplug_plugin_state_t {
 
     char title[256] {};
     char author[256] {};
+    char type[128] {};
     char last_error[256] {};
 };
 
@@ -145,11 +146,16 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_load(void* self, const char* path,
 
     strncpy(s->title, raw->gettitle().c_str(), sizeof(s->title) - 1);
     strncpy(s->author, raw->getauthor().c_str(), sizeof(s->author) - 1);
+    strncpy(s->type, raw->gettype().c_str(), sizeof(s->type) - 1);
     const unsigned long length_ms = SafeSonglength(raw, static_cast<int>(s->subsong));
 
+    static char line1_buf[160], line2_buf[288];
+    snprintf(line1_buf, sizeof(line1_buf), "Type: %s", s->type);
+    snprintf(line2_buf, sizeof(line2_buf), "Author: %s", s->author);
+
     out_meta->title = s->title[0] ? s->title : nullptr;
-    out_meta->line1 = s->author[0] ? s->author : "";
-    out_meta->line2 = "";
+    out_meta->line1 = s->type[0]   ? line1_buf : "";
+    out_meta->line2 = s->author[0] ? line2_buf : "";
     out_meta->line3 = "";
     out_meta->duration_s = length_ms > 0 ? length_ms / 1000.0 : 0.0;
     out_meta->num_subsongs = static_cast<int>(s->num_subsongs);

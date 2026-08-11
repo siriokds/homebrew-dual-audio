@@ -149,9 +149,13 @@ static int DUAL_AUDIO_PLUGIN_ABI sid_load(void* self, const char* path,
     s->current_subsong = start_subsong;
     s->playing = 1;
 
+    static char line1_buf[288], line2_buf[160];
+    snprintf(line1_buf, sizeof(line1_buf), "Author: %s", s->author);
+    snprintf(line2_buf, sizeof(line2_buf), "Released: %s", s->released);
+
     out_meta->title           = s->title[0] ? s->title : nullptr;
-    out_meta->line1           = s->author[0]   ? s->author   : "";
-    out_meta->line2           = s->released[0] ? s->released : "";
+    out_meta->line1           = s->author[0]   ? line1_buf : "";
+    out_meta->line2           = s->released[0] ? line2_buf : "";
     out_meta->line3           = "";
     out_meta->duration_s      = 0.0;  // i SID suonano in loop, durata ignota
     out_meta->num_subsongs    = num_subsongs;
