@@ -1,15 +1,17 @@
 # homebrew-dual-audio
 
-Homebrew tap for the GPL-licensed audio modules used by
-[Dual](https://github.com/siriokds/dual), kept in their own repository and
-their own build so they stay separate from Dual's own binary. Each module
-ships two things: the underlying library (`libuade.dylib`,
-`libsidplayfp.dylib`, ...) and a small **plugin adapter** that wraps it
-behind `dual_audio_plugin.h` — a stable C interface Dual dlopens at
-runtime and never links against directly. See Dual's own
-`docs/CLAUDE/AUDIO_BACKEND_LICENSES.md` for the full reasoning, and
-`src/audio_plugin_abi.h` in the Dual repo for the interface itself
-(identical copy to each module's `plugin/dual_audio_plugin.h` here).
+Homebrew tap for the audio modules used by
+[Dual](https://github.com/siriokds/dual) as external plugins, kept in their
+own repository so Dual never links against any of them directly. Each
+module ships a small **plugin adapter** that wraps a library behind
+`dual_audio_plugin.h` — a stable C interface Dual dlopens at runtime. For
+GPL libraries (UADE, libsidplayfp) this isolation is a legal requirement;
+for others (AdPlug, LGPL) it is done purely for architectural consistency
+— Dual talks to `dual_audio_plugin.h` and nothing else, regardless of the
+license underneath. See Dual's own `docs/CLAUDE/AUDIO_BACKEND_LICENSES.md`
+for the full reasoning, and `src/audio_plugin_abi.h` in the Dual repo for
+the interface itself (identical copy to each module's
+`plugin/dual_audio_plugin.h` here).
 
 One tap, one repository, multiple modules — new modules get their own
 subfolder under `modules/` and their own `Formula/*.rb`, not a new
@@ -29,6 +31,16 @@ repository each.
   built as `libsidplayfp.dylib` (ReSIDfp band-limited emulation). Formula:
   `Formula/dual-sidplayfp.rb`.
 
+- **`modules/adplug/`** — AdLib/OPL2/OPL3 tracker and composer formats.
+  Unlike the other two, this module builds nothing: AdPlug is LGPL, so the
+  official `adplug` Homebrew formula is used as-is (`depends_on "adplug"`)
+  and only the plugin adapter is compiled here, linked dynamically against
+  it. Fixed CEmuopl engine for now — AdPlug itself already bundles several
+  alternative OPL emulators (Nuked OPL3, Ken Silverman's, Tatsuyuki
+  Satoh's, DOSBox's), picking one at runtime is a possible future addition
+  once Dual gains a generic parser for the `config_dialog` DSL. Formula:
+  `Formula/dual-adplug.rb`.
+
 ## Installing
 
 ```sh
@@ -36,6 +48,7 @@ brew tap siriokds/dual-audio
 brew trust siriokds/dual-audio --tap
 brew install siriokds/dual-audio/dual-uade
 brew install siriokds/dual-audio/dual-sidplayfp
+brew install siriokds/dual-audio/dual-adplug
 ```
 
 ## Step by step
