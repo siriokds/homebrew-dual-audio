@@ -34,6 +34,15 @@ class DualSidplayfp < Formula
     # di autoreconf (che altrimenti non trova le macro m4 del driver exSID).
     system "git", "submodule", "update", "--init", "--recursive"
 
+    # Il sandbox di build di Homebrew nega l'accesso (getcwd/pwd) al file
+    # .git di un submodule, che punta fuori dal buildpath autorizzato
+    # (dentro .git/modules/ del genitore) — sintomo: "pwd: .: Operation
+    # not permitted" seguito da "cannot chdir to : ..." dentro autoreconf.
+    # Il contenuto serve solo come sorgente, non la sua storia git: si
+    # rimuovono i puntatori .git dei submodule annidati, diventano directory
+    # normali e il sandbox non ci inciampa piu'.
+    Dir.glob("src/builders/*/{resid,driver}/.git").each { |f| rm_rf f }
+
     system "autoreconf", "--force", "--install", "--verbose"
     system "./configure", "--disable-silent-rules", *std_configure_args
     system "make", "install"
