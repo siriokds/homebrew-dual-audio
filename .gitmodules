@@ -2,3 +2,7 @@
 	path = modules/uade/src
 	url = https://gitlab.com/mvtiaine/uade.git
 	branch = dragnet
+[submodule "modules/sidplayfp/src"]
+	path = modules/sidplayfp/src
+	url = https://github.com/libsidplayfp/libsidplayfp.git
+	branch = master
