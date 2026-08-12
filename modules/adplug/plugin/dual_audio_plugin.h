@@ -58,7 +58,15 @@ extern "C" {
 // una struct. Vale solo perche' tutti gli adattatori vengono ricompilati
 // insieme a questo header ad ogni bump; un vero terzo plugin precompilato
 // smetterebbe di funzionare.
-#define DUAL_AUDIO_PLUGIN_API_VMINOR 2
+//
+// v1.3: aggiunta ops.set_option(self, key, value) — vedi il commento sulla
+// funzione. Stessa clausola di v1.2: e' un campo NUOVO in coda alla vtable,
+// non un campo in coda a una struct di soli dati, quindi vale solo perche'
+// tutti gli adattatori si ricompilano insieme a questo header. Un host che
+// legge un plugin compilato a vminor < 3 non deve chiamare set_option: il
+// puntatore a funzione, oltre la fine della struct realmente allocata dal
+// plugin vecchio, e' memoria che non gli appartiene.
+#define DUAL_AUDIO_PLUGIN_API_VMINOR 3
 
 // ── Architettura ─────────────────────────────────────────────────────────────
 // Non serve un campo esplicito: dlopen() su macOS rifiuta già da solo un
@@ -104,11 +112,25 @@ typedef struct {
     // la mappa estensione→plugin senza che il plugin sappia nulla del resto.
     const char* const* extensions;
 
-    // Mini-DSL alla DeaDBeeF per la pagina di configurazione, es.:
-    //   "property \"Sample rate\" entry uade.samplerate 44100;\n"
-    //   "property \"Resampler\" select[2] uade.resampler 0 \"none\" \"sinc\";\n"
-    // Dual la interpreta e disegna i widget in wx; il plugin non disegna nulla.
-    // NULL se il plugin non ha parametri configurabili.
+    // Mini-DSL per la pagina di configurazione — oggi un solo tipo di
+    // controllo, un menu a tendina. Una riga per controllo, campi separati
+    // da '|', opzioni scritte "chiave:descrizione" (chiave stabile e non
+    // tradotta, salvata in configurazione; descrizione mostrata all'utente):
+    //
+    //   select|<etichetta>|<chiave_config>|<chiave_default>|<k1>:<d1>|<k2>:<d2>|...
+    //
+    // Esempio reale (AdPlug, motore di sintesi OPL):
+    //   "select|OPL Engine|opl_engine|emu|"
+    //   "emu:CEmuopl (default)|nuked:Nuked OPL3 (cycle-accurate)|"
+    //   "ken:Ken Silverman's|satoh:Tatsuyuki Satoh's|woody:DOSBox"
+    //
+    // La chiave (non l'indice posizionale) e' cio' che Dual salva e passa a
+    // ops.set_option: un indice si romperebbe silenziosamente se l'ordine
+    // delle opzioni cambiasse in una versione futura del plugin, una chiave
+    // testuale no (stesso motivo per cui l'output audio si salva per id, non
+    // per handle — vedi AudioDeviceConfig in Dual). Dual la interpreta e
+    // disegna i widget in wx; il plugin non disegna nulla, e non sa nulla di
+    // wxWidgets. NULL se il plugin non ha parametri configurabili.
     const char* config_dialog;
 
     // Quanto deve durare la salita anti-click quando Dual avvia l'uscita
@@ -211,6 +233,17 @@ typedef struct {
 
     void  (DUAL_AUDIO_PLUGIN_ABI *set_volume)(void* self, int pct);
     int   (DUAL_AUDIO_PLUGIN_ABI *get_volume)(void* self);
+
+    // Applica un'opzione dichiarata dal plugin stesso nel proprio
+    // info.config_dialog (v1.3). "key" e' la <chiave_config> di una riga
+    // "select", "value" una delle <k1>/<k2>/... di quella riga — mai
+    // testo libero, Dual passa solo cio' che il plugin ha dichiarato.
+    // Dual la chiama sempre DOPO create() e PRIMA di load(): un plugin che
+    // ha bisogno del valore per il render (es. quale motore OPL istanziare)
+    // lo applica li', non a caldo durante la riproduzione. Puo' essere NULL
+    // (nessuna opzione configurabile) — Dual controlla il puntatore prima
+    // di chiamarlo, oltre a api_vminor >= 3.
+    void  (DUAL_AUDIO_PLUGIN_ABI *set_option)(void* self, const char* key, const char* value);
 
     // out_meta va riempito con i metadati AGGIORNATI del nuovo subsong
     // (stesso ruolo di load()) — senza, l'host non avrebbe modo di sapere

@@ -243,6 +243,7 @@ static const dual_audio_plugin_t kPlugin = {
         mpt_sample_rate, mpt_render,
         mpt_is_playing, mpt_is_paused,
         mpt_set_volume, mpt_get_volume,
+        nullptr, // set_option: nessuna opzione configurabile
         mpt_set_subsong, mpt_get_position_seconds,
         mpt_can_seek, mpt_seek_seconds,
     },

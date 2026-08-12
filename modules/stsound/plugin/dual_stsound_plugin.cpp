@@ -206,6 +206,7 @@ static const dual_audio_plugin_t kPlugin = {
         st_sample_rate, st_render,
         st_is_playing, st_is_paused,
         st_set_volume, st_get_volume,
+        nullptr, // set_option: nessuna opzione configurabile
         st_set_subsong, st_get_position_seconds,
         st_can_seek, st_seek_seconds,
     },

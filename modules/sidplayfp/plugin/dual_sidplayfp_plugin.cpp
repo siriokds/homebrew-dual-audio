@@ -265,6 +265,7 @@ static const dual_audio_plugin_t kPlugin = {
         sid_sample_rate, sid_render,
         sid_is_playing, sid_is_paused,
         sid_set_volume, sid_get_volume,
+        nullptr, // set_option: nessuna opzione configurabile
         sid_set_subsong, sid_get_position_seconds,
         sid_can_seek, sid_seek_seconds,
     },

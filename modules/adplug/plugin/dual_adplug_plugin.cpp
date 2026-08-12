@@ -3,16 +3,27 @@
 // sidplayfp, questo modulo esiste solo per coerenza architetturale) dietro
 // l'ABI dual_audio_plugin.h.
 //
-// Motore fisso CEmuopl, stesso di adplug_player.cpp in Dual oggi — la
-// scelta del motore OPL (Nuked/Ken Silverman's/Satoh's/DOSBox, tutti gia'
-// presenti dentro AdPlug stesso, verificato) resta un passo futuro: serve
-// prima un parser della DSL config_dialog lato Dual, che oggi non esiste.
+// Motore OPL selezionabile a runtime via ops.set_option("opl_engine", key)
+// (ABI v1.3): CEmuopl (default, fmopl di MAME), CNemuopl (Nuked OPL3,
+// cycle-accurate), CKemuopl (Ken Silverman's), CTemuopl (Tatsuyuki Satoh's).
+// CWoodyopl (DOSBox) e' escluso: pur presente nei sorgenti di AdPlug, non
+// espone una sottoclasse Copl (verificato con `nm` sul .a — solo
+// OPLChipClass di basso livello) quindi non e' un drop-in come gli altri.
+//
+// Rate FISSO al nativo del chip OPL3 (49716 Hz), non a preferred_rate_hz:
+// tutti e quattro i motori accettano un rate arbitrario ma sono piu' fedeli
+// al proprio rate nativo (specialmente CNemuopl, cycle-accurate), quindi
+// sample_rate() dichiara sempre 49716 e la conversione verso il device tocca
+// a Dual (vedi PluginResampler in dual/src/audio_plugin_resampler.h).
 
 #define DUAL_AUDIO_PLUGIN_BUILDING
 #include "dual_audio_plugin.h"
 
 #include <adplug/adplug.h>
 #include <adplug/emuopl.h>
+#include <adplug/kemuopl.h>
+#include <adplug/nemuopl.h>
+#include <adplug/temuopl.h>
 #include <adplug/player.h>
 
 #include <algorithm>
@@ -53,11 +64,14 @@ static unsigned long SafeSonglength(CPlayer* player, int subsong) {
 
 // ── Stato per istanza ────────────────────────────────────────────────────────
 
+// Rate nativo del chip OPL3 — vedi il commento in testa al file.
+static constexpr int kOplNativeRate = 49716;
+
 struct adplug_plugin_state_t {
-    std::unique_ptr<CEmuopl> opl;
+    std::unique_ptr<Copl> opl;
     std::unique_ptr<CPlayer> player;
 
-    int rate {0};
+    char engine[16] {"emu"}; // vedi adplug_set_option: "emu"/"nuked"/"ken"/"satoh"
     int playing {0};
 
     unsigned int subsong {0};
@@ -89,9 +103,30 @@ static const char* const kExtensions[] = {
 // ── ops ──────────────────────────────────────────────────────────────────────
 
 static void* DUAL_AUDIO_PLUGIN_ABI adplug_create(int preferred_rate_hz) {
+    (void)preferred_rate_hz; // ignorato: si renderizza sempre al rate nativo, vedi sopra
     auto s = std::make_unique<adplug_plugin_state_t>();
-    s->rate = preferred_rate_hz;
     return s.release();
+}
+
+// Costruisce l'emulatore OPL scelto da "engine" ("emu" se sconosciuto/vuoto).
+// TYPE_OPL2 forzato su tutti: il default TYPE_DUAL_OPL2 di CKemuopl mappa
+// chip0->L e chip1->R, quindi un file che usa solo chip0 (la maggioranza)
+// suonerebbe sbilanciato a sinistra — stessa scelta di adplug_player.cpp in
+// Dual da sempre. Innocuo su CNemuopl, che ignora currType e renderizza
+// sempre stereo pieno (OPL3_GenerateStream, verificato nel sorgente).
+static std::unique_ptr<Copl> adplug_make_opl(const char* engine, int rate) {
+    std::unique_ptr<Copl> opl;
+    if (strcmp(engine, "nuked") == 0) {
+        opl = std::make_unique<CNemuopl>(rate);
+    } else if (strcmp(engine, "ken") == 0) {
+        opl = std::make_unique<CKemuopl>(rate, /*bit16=*/true, /*stereo=*/true);
+    } else if (strcmp(engine, "satoh") == 0) {
+        opl = std::make_unique<CTemuopl>(rate, /*bit16=*/true, /*stereo=*/true);
+    } else {
+        opl = std::make_unique<CEmuopl>(rate, /*bit16=*/true, /*stereo=*/true);
+    }
+    opl->settype(Copl::TYPE_OPL2);
+    return opl;
 }
 
 static void DUAL_AUDIO_PLUGIN_ABI adplug_destroy(void* self) {
@@ -144,12 +179,7 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_load(void* self, const char* path,
                                               dual_song_meta_t* out_meta) {
     auto* s = static_cast<adplug_plugin_state_t*>(self);
 
-    // Forza TYPE_OPL2 (chip singolo): il default TYPE_DUAL_OPL2 mappa
-    // chip0->L e chip1->R, quindi un file che usa solo chip0 (la
-    // maggioranza) suonerebbe sbilanciato a sinistra — stessa scelta di
-    // adplug_player.cpp oggi.
-    auto opl = std::make_unique<CEmuopl>(s->rate, /*bit16=*/true, /*stereo=*/true);
-    opl->settype(Copl::TYPE_OPL2);
+    auto opl = adplug_make_opl(s->engine, kOplNativeRate);
 
     CPlayer* raw = CAdPlug::factory(path, opl.get());
     if (!raw) {
@@ -180,7 +210,8 @@ static void DUAL_AUDIO_PLUGIN_ABI adplug_stop(void* self) {
 }
 
 static int DUAL_AUDIO_PLUGIN_ABI adplug_sample_rate(void* self) {
-    return static_cast<adplug_plugin_state_t*>(self)->rate;
+    (void)self;
+    return kOplNativeRate;
 }
 
 // AdPlug renderizza a "tick" (ritmo del player, non del device): un tick puo'
@@ -204,7 +235,7 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_render(void* self, int16_t* out, int fra
             }
             const float hz = s->player->getrefresh();
             samples_until_update = (hz > 0.0f)
-                ? static_cast<unsigned long>(s->rate / hz) : 1024UL;
+                ? static_cast<unsigned long>(kOplNativeRate / hz) : 1024UL;
         }
         const unsigned long n = std::min(
             static_cast<unsigned long>(remaining), samples_until_update);
@@ -226,6 +257,18 @@ static void DUAL_AUDIO_PLUGIN_ABI adplug_set_volume(void* self, int pct) {
     (void)self; (void)pct;
 }
 static int DUAL_AUDIO_PLUGIN_ABI adplug_get_volume(void* self) { (void)self; return 100; }
+
+// Applica SOLO "opl_engine" (l'unica chiave dichiarata in info.config_dialog
+// qui sotto). Effetto al PROSSIMO load(): l'host lo garantisce per contratto
+// (vedi set_option in dual_audio_plugin.h), quindi non serve ricostruire
+// s->opl qui — cambiare motore a meta' canzone non e' previsto.
+static void DUAL_AUDIO_PLUGIN_ABI adplug_set_option(void* self, const char* key, const char* value) {
+    auto* s = static_cast<adplug_plugin_state_t*>(self);
+    if (!s || !key || !value) return;
+    if (strcmp(key, "opl_engine") != 0) return;
+    strncpy(s->engine, value, sizeof(s->engine) - 1);
+    s->engine[sizeof(s->engine) - 1] = 0;
+}
 
 static void DUAL_AUDIO_PLUGIN_ABI adplug_set_subsong(void* self, int idx_0based,
                                                        dual_song_meta_t* out_meta) {
@@ -260,14 +303,16 @@ static const dual_audio_plugin_t kPlugin = {
         2, 4, // AdPlug 2.4 (stock Homebrew)
         "adplug",
         "AdPlug",
-        "AdLib/OPL2/OPL3 tracker and composer formats (CEmuopl engine)",
+        "AdLib/OPL2/OPL3 tracker and composer formats, motore OPL selezionabile",
         "AdPlug — Replayer for many OPL2/OPL3 audio file formats\n"
         "Copyright (C) 1999-2024 Simon Peter and contributors\n"
         "GNU Lesser General Public License v2.1-or-later\n"
         "https://adplug.github.io",
         "https://github.com/siriokds/homebrew-dual-audio",
         kExtensions,
-        nullptr, // config_dialog: scelta motore rimandata (serve il parser DSL lato Dual)
+        "select|OPL Engine|opl_engine|emu|"
+        "emu:CEmuopl (default)|nuked:Nuked OPL3 (cycle-accurate)|"
+        "ken:Ken Silverman's|satoh:Tatsuyuki Satoh's",
         0.0f,    // fade_in_seconds: usa il default di Dual
         nullptr, // extended_params
     },
@@ -277,6 +322,7 @@ static const dual_audio_plugin_t kPlugin = {
         adplug_sample_rate, adplug_render,
         adplug_is_playing, adplug_is_paused,
         adplug_set_volume, adplug_get_volume,
+        adplug_set_option,
         adplug_set_subsong, adplug_get_position_seconds,
         adplug_can_seek, adplug_seek_seconds,
     },

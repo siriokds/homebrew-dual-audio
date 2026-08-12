@@ -296,6 +296,7 @@ static const dual_audio_plugin_t kPlugin = {
         uade_plugin_sample_rate, uade_plugin_render,
         uade_plugin_is_playing, uade_plugin_is_paused,
         uade_plugin_set_volume, uade_plugin_get_volume,
+        NULL, // set_option: nessuna opzione configurabile
         uade_plugin_set_subsong, uade_plugin_get_position_seconds,
         uade_plugin_can_seek, uade_plugin_seek_seconds,
     },
