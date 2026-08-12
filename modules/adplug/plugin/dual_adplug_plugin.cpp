@@ -74,6 +74,16 @@ struct adplug_plugin_state_t {
     char engine[16] {"emu"}; // vedi adplug_set_option: "emu"/"nuked"/"ken"/"satoh"
     int playing {0};
 
+    // Rampa anti-click SOLO per "nuked": Nuked OPL3 (cycle-accurate) produce
+    // un breve rumore bianco all'attacco, confermato anche in DeaDBeeF sullo
+    // stesso file (PHANDRAL/DREAMING.RAD) — quindi caratteristica nota del
+    // motore stesso, non un bug nostro. info.fade_in_seconds nell'ABI e'
+    // per-PLUGIN, non per-motore selezionato a runtime, quindi la rampa
+    // dell'host non puo' distinguere "nuked" dagli altri tre — va applicata
+    // qui, sui campioni, solo quando questo motore e' attivo.
+    int warmup_left {0};
+    int warmup_total {0};
+
     unsigned int subsong {0};
     unsigned int num_subsongs {1};
 
@@ -109,22 +119,35 @@ static void* DUAL_AUDIO_PLUGIN_ABI adplug_create(int preferred_rate_hz) {
 }
 
 // Costruisce l'emulatore OPL scelto da "engine" ("emu" se sconosciuto/vuoto).
-// TYPE_OPL2 forzato su tutti: il default TYPE_DUAL_OPL2 di CKemuopl mappa
-// chip0->L e chip1->R, quindi un file che usa solo chip0 (la maggioranza)
-// suonerebbe sbilanciato a sinistra — stessa scelta di adplug_player.cpp in
-// Dual da sempre. Innocuo su CNemuopl, che ignora currType e renderizza
-// sempre stereo pieno (OPL3_GenerateStream, verificato nel sorgente).
+// settype() NON e' virtuale su Copl (verificato in opl.h: solo gettype() e'
+// nella base, currType e' protected) — ogni motore lo dichiara per conto
+// suo, quindi il fix del panning va per caso specifico, non un unique_ptr<Copl>
+// generico con una chiamata sola:
+//   - CEmuopl: default TYPE_DUAL_OPL2 (chip0->L, chip1->R) — un file che usa
+//     solo chip0 (la maggioranza) suonerebbe sbilanciato a sinistra; ha un
+//     proprio settype() pubblico, usato per forzare TYPE_OPL2. Stessa scelta
+//     di adplug_player.cpp in Dual da sempre.
+//   - CKemuopl: stesso default TYPE_DUAL_OPL2, ma NON espone settype() — il
+//     suo update() instrada comunque chip0->L/chip1->R a prescindere da
+//     currType quando costruito stereo, quindi il limite resta: un file
+//     mono-chip su questo motore suonera' sbilanciato. Nessun modo di
+//     correggerlo senza modificare AdPlug stesso.
+//   - CTemuopl: currType resta TYPE_OPL2 di default (mai toccato dal proprio
+//     costruttore) e update() duplica sempre mono->stereo — gia' corretto,
+//     nessun settype necessario.
+//   - CNemuopl: OPL3 vero, panning stereo nativo via i registri del chip,
+//     ignora currType — gia' corretto.
 static std::unique_ptr<Copl> adplug_make_opl(const char* engine, int rate) {
-    std::unique_ptr<Copl> opl;
     if (strcmp(engine, "nuked") == 0) {
-        opl = std::make_unique<CNemuopl>(rate);
-    } else if (strcmp(engine, "ken") == 0) {
-        opl = std::make_unique<CKemuopl>(rate, /*bit16=*/true, /*stereo=*/true);
-    } else if (strcmp(engine, "satoh") == 0) {
-        opl = std::make_unique<CTemuopl>(rate, /*bit16=*/true, /*stereo=*/true);
-    } else {
-        opl = std::make_unique<CEmuopl>(rate, /*bit16=*/true, /*stereo=*/true);
+        return std::make_unique<CNemuopl>(rate);
     }
+    if (strcmp(engine, "ken") == 0) {
+        return std::make_unique<CKemuopl>(rate, /*bit16=*/true, /*stereo=*/true);
+    }
+    if (strcmp(engine, "satoh") == 0) {
+        return std::make_unique<CTemuopl>(rate, /*bit16=*/true, /*stereo=*/true);
+    }
+    auto opl = std::make_unique<CEmuopl>(rate, /*bit16=*/true, /*stereo=*/true);
     opl->settype(Copl::TYPE_OPL2);
     return opl;
 }
@@ -194,6 +217,12 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_load(void* self, const char* path,
     s->num_subsongs = raw->getsubsongs();
     s->playing = 1;
 
+    // ~82 ms al rate nativo OPL3 (kOplNativeRate * 0.082 =~ 4077, arrotondato):
+    // piu' lungo dei 40 ms usati per il pop del SID perche' qui il rumore
+    // riportato dall'utente era piu' percepibile, non un semplice click.
+    s->warmup_total = (strcmp(s->engine, "nuked") == 0) ? 4096 : 0;
+    s->warmup_left  = s->warmup_total;
+
     strncpy(s->title, raw->gettitle().c_str(), sizeof(s->title) - 1);
     strncpy(s->author, raw->getauthor().c_str(), sizeof(s->author) - 1);
     strncpy(s->type, raw->gettype().c_str(), sizeof(s->type) - 1);
@@ -245,7 +274,22 @@ static int DUAL_AUDIO_PLUGIN_ABI adplug_render(void* self, int16_t* out, int fra
         samples_until_update -= n;
     }
 
-    return frames - remaining;
+    const int written = frames - remaining;
+
+    // Rampa anti-rumore per "nuked" — vedi il commento su warmup_total in
+    // adplug_plugin_state_t. Lineare 0->1, applicata sui campioni GIA'
+    // renderizzati sopra, prima di restituirli.
+    if (s->warmup_left > 0) {
+        const int n = std::min(written, s->warmup_left);
+        for (int i = 0; i < n; i++) {
+            const float g = 1.0f - static_cast<float>(s->warmup_left) / s->warmup_total;
+            out[i * 2]     = static_cast<int16_t>(out[i * 2]     * g);
+            out[i * 2 + 1] = static_cast<int16_t>(out[i * 2 + 1] * g);
+            s->warmup_left--;
+        }
+    }
+
+    return written;
 }
 
 static int DUAL_AUDIO_PLUGIN_ABI adplug_is_playing(void* self) {
@@ -310,9 +354,14 @@ static const dual_audio_plugin_t kPlugin = {
         "https://adplug.github.io",
         "https://github.com/siriokds/homebrew-dual-audio",
         kExtensions,
+        // Nomi identici al menu motori OPL di DeaDBeeF (stessi 4 su 5 —
+        // DOSBox escluso, vedi il commento su adplug_make_opl), cosi' un
+        // utente che li conosce gia' da li' li ritrova uguali qui.
         "select|OPL Engine|opl_engine|emu|"
-        "emu:CEmuopl (default)|nuked:Nuked OPL3 (cycle-accurate)|"
-        "ken:Ken Silverman's|satoh:Tatsuyuki Satoh's",
+        "nuked:Nuked OPL3|"
+        "satoh:Tatsuyuki Satoh's OPL2 emulator|"
+        "ken:Ken Silverman's OPL emulator|"
+        "emu:Simon Peter's OPL emulator (default)",
         0.0f,    // fade_in_seconds: usa il default di Dual
         nullptr, // extended_params
     },
