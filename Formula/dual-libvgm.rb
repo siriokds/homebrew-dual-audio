@@ -14,7 +14,7 @@ class DualLibvgm < Formula
   # nel suo complesso e' gia' GPL (per via di sidplayfp), quindi i core
   # GPL-2.0+ qui non aggiungono nessuna tensione di licenza nuova.
   url "https://github.com/siriokds/homebrew-dual-audio.git", branch: "main"
-  version "1.0.0"
+  version "1.0.1"
   license "GPL-2.0-or-later" # licenza piu' restrittiva fra quelle usate, per coerenza col resto del tap
 
   livecheck do

@@ -273,9 +273,29 @@ static double DUAL_AUDIO_PLUGIN_ABI vgm_get_position_seconds(void* self) {
     return SharedEngine(s->rate).playerA.GetCurTime(PLAYTIME_TIME_FILE);
 }
 
-static int  DUAL_AUDIO_PLUGIN_ABI vgm_can_seek(void* self) { (void)self; return 0; }
+// A differenza dei backend tracker/chip (sidplayfp, AdPlug, StSound...), dove
+// la posizione e' un effetto collaterale della sintesi e non un indice su cui
+// saltare, un VGM E' un log di comandi temporizzati: la posizione e' un dato
+// del file. VGMPlayer::Seek gestisce anche il salto all'indietro — fa Reset()
+// e ri-parsa i comandi fino al punto richiesto, ricostruendo lo stato dei chip
+// (vgmplayer.cpp, SeekToTick/ParseFile) — quindi lo scrubbing e' corretto in
+// entrambe le direzioni, non solo in avanti.
+static int  DUAL_AUDIO_PLUGIN_ABI vgm_can_seek(void* self) { (void)self; return 1; }
+
 static void DUAL_AUDIO_PLUGIN_ABI vgm_seek_seconds(void* self, double seconds) {
-    (void)self; (void)seconds;
+    auto* s = static_cast<vgm_plugin_state_t*>(self);
+    if(!s->loader) return;
+    if(seconds < 0.0) seconds = 0.0;
+
+    // PLAYPOS_SAMPLE e' "numero di campione alla frequenza di rendering"
+    // (playerbase.hpp), quindi secondi * rate.
+    SharedEngine(s->rate).playerA.Seek(PLAYPOS_SAMPLE,
+                                       static_cast<UINT32>(seconds * s->rate));
+
+    // Saltare indietro da un brano gia' finito deve farlo ripartire: senza
+    // questo, render() continuerebbe a tornare 0 perche' playing era stato
+    // azzerato al raggiungimento di PLAYSTATE_FIN.
+    s->playing = 1;
 }
 
 // ── Descrittore statico ───────────────────────────────────────────────────────
@@ -285,7 +305,12 @@ static const dual_audio_plugin_t kPlugin = {
         DUAL_AUDIO_PLUGIN_TYPE_GENERATOR,
         DUAL_AUDIO_PLUGIN_API_VMAJOR,
         DUAL_AUDIO_PLUGIN_API_VMINOR,
-        0, 1, // libvgm non ha versioni numerate — commit e41ca80 (2026)
+        // libvgm a monte non ha versioni numerate (nessuna release taggata,
+        // pinnato al commit e41ca80): qui si dichiara la versione del NOSTRO
+        // modulo, allineata alla `version` della Formula — cosi' la pagina di
+        // configurazione mostra "v1.0" e non un numero che non corrisponde a
+        // nulla di installabile.
+        1, 0,
         "libvgm",
         "libvgm (VGMPlay)",
         "Video Game Music register-log playback (~30 chip emulators)",
