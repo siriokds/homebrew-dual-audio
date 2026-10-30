@@ -16,6 +16,14 @@ class DualAdplug < Formula
   version "1.0.0"
   license "LGPL-2.1-or-later"
 
+  # Il plugin gia' compilato (bottle, docs/bottle.md di Dual Rust): chi
+  # installa non compila. Senza bottle per il suo sistema, si compila come prima.
+  bottle do
+    root_url "https://github.com/siriokds/homebrew-dual-audio/releases/download/bottles-2026-10-31"
+    rebuild 1
+    sha256 cellar: :any, arm64_golden_gate: "0228e31612df96ae5b9eed4ad2927dac91e3b39d78a0b9a3a5f3e4a396780aab"
+  end
+
   # Nessuna collisione di nome con nulla (a differenza di dual-uade): serve
   # solo a mantenere la stessa convenzione degli altri moduli — ogni
   # dual-<nome> vive sotto /opt/homebrew/opt/dual-<nome>/lib/, che e'

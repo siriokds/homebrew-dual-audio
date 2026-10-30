@@ -12,6 +12,14 @@ class DualSidplayfp < Formula
   version "2.16.1"
   license "GPL-2.0-or-later"
 
+  # Il plugin gia' compilato (bottle, docs/bottle.md di Dual Rust): chi
+  # installa non compila. Senza bottle per il suo sistema, si compila come prima.
+  bottle do
+    root_url "https://github.com/siriokds/homebrew-dual-audio/releases/download/bottles-2026-10-31"
+    rebuild 1
+    sha256 cellar: :any, arm64_golden_gate: "94399d4f0e1b959ae192d3dbb2d6f0c35359c01ce7ebb846c36b3ea1c5378369"
+  end
+
   # Nessun conflitto di nome con la formula ufficiale "libsidplayfp" (che
   # installa libsidplayfp.dylib "nudo", senza adattatore plugin) — ma
   # keg_only comunque, per coerenza con dual-uade e per non aggiungere una

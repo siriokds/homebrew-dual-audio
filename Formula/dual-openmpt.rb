@@ -12,6 +12,14 @@ class DualOpenmpt < Formula
   version "1.0.0"
   license "BSD-3-Clause"
 
+  # Il plugin gia' compilato (bottle, docs/bottle.md di Dual Rust): chi
+  # installa non compila. Senza bottle per il suo sistema, si compila come prima.
+  bottle do
+    root_url "https://github.com/siriokds/homebrew-dual-audio/releases/download/bottles-2026-10-31"
+    rebuild 1
+    sha256 cellar: :any, arm64_golden_gate: "0573d1e5d31dc5f85bc2cda3be6d8ca35e87dc3bab8e65f0c7ac92521907fe65"
+  end
+
   livecheck do
     skip "il sorgente e' questo stesso repository, nessuna versione upstream da tracciare"
   end

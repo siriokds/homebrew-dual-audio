@@ -5,6 +5,14 @@ class DualUade < Formula
   version "3.05-dragnet"
   license "GPL-2.0-only"
 
+  # Il plugin gia' compilato (bottle, docs/bottle.md di Dual Rust): chi
+  # installa non compila. Senza bottle per il suo sistema, si compila come prima.
+  bottle do
+    root_url "https://github.com/siriokds/homebrew-dual-audio/releases/download/bottles-2026-10-31"
+    rebuild 1
+    sha256 cellar: "/opt/homebrew/Cellar", arm64_golden_gate: "ff177757e968563503da639998dc26edf6937f6513f6a1c81200bf4924b15354"
+  end
+
   # Installs the same binary/library names as the official "uade" formula
   # (uade123, libuade.dylib) — keg_only keeps it out of the shared prefix so
   # both can be installed side by side without conflicting, and callers pick

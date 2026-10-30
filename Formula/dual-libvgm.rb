@@ -17,6 +17,14 @@ class DualLibvgm < Formula
   version "1.0.1"
   license "GPL-2.0-or-later" # licenza piu' restrittiva fra quelle usate, per coerenza col resto del tap
 
+  # Il plugin gia' compilato (bottle, docs/bottle.md di Dual Rust): chi
+  # installa non compila. Senza bottle per il suo sistema, si compila come prima.
+  bottle do
+    root_url "https://github.com/siriokds/homebrew-dual-audio/releases/download/bottles-2026-10-31"
+    rebuild 1
+    sha256 cellar: :any, arm64_golden_gate: "4555095dc0125af38b9409707869d001b04081d12a58582876f656d79ae4632a"
+  end
+
   livecheck do
     skip "il sorgente e' vendorizzato in questo stesso repository, nessuna versione upstream da tracciare"
   end

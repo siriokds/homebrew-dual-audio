@@ -17,6 +17,14 @@ class DualStsound < Formula
   version "1.0.0"
   license "MIT"
 
+  # Il plugin gia' compilato (bottle, docs/bottle.md di Dual Rust): chi
+  # installa non compila. Senza bottle per il suo sistema, si compila come prima.
+  bottle do
+    root_url "https://github.com/siriokds/homebrew-dual-audio/releases/download/bottles-2026-10-31"
+    rebuild 1
+    sha256 cellar: :any, arm64_golden_gate: "f5d672d1b9dd4736016ec8f0ffab586ea0d5b9cbaed92d234b9a25fea0d0d7a9"
+  end
+
   livecheck do
     skip "il sorgente e' vendorizzato in questo stesso repository, nessuna versione upstream da tracciare"
   end
